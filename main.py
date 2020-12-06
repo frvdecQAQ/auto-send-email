@@ -11,9 +11,9 @@ def del_space_and_enter(s):
 
 
 def generate_recv_email_csv():
-    with open('./config/format.txt', 'r') as f:
+    with open('./config/format.txt', 'r', encoding='utf-8') as f:
         content_format = f.read().split('$')
-    with open('./config/replace.txt', 'r') as f:
+    with open('./config/replace.txt', 'r', encoding='utf-8') as f:
         goal_replace = f.readlines()
     csv_data = []
     for rep in goal_replace:
@@ -31,14 +31,14 @@ def generate_recv_email_csv():
         tmp_title = s[0]
         tmp_content = "\n".join(s[1:])
         csv_data.append([rep_split[0], tmp_title, tmp_content])
-    with open('./config/recv_email.csv', 'w') as f:
+    with open('./config/recv_email.csv', 'w', encoding='utf-8') as f:
         csv_writer = csv.writer(f)
         for row_data in csv_data:
             csv_writer.writerow(row_data)
 
 
 def parse_my_email_config():
-    with open('./config/my_email.txt') as f:
+    with open('./config/my_email.txt', 'r', encoding='utf-8') as f:
         host = del_space_and_enter(f.readline())
         email = del_space_and_enter(f.readline())
         passwd = del_space_and_enter(f.readline())
@@ -58,32 +58,43 @@ def login_my_email():
 
 def read_recv_list():
     csv_reader_data = []
-    with open('config/recv_email.csv') as f:
+    with open('config/recv_email.csv', 'r', encoding='utf-8') as f:
         csv_reader = csv.reader(f)
         for csv_reader_row in csv_reader:
+            if len(csv_reader_row) != 3:
+                continue
             csv_reader_data.append(csv_reader_row)
+    print(csv_reader_data)
     return csv_reader_data
 
 
 if __name__ == '__main__':
+    if len(sys.argv) != 2 or (sys.argv[1] != 'generate' and sys.argv[1] != 'send'):
+        print("ERROR: Parameters are not correct\n")
+        sys.exit()
     generate_recv_email_csv()
-    smtp_obj, send_email = login_my_email()
-    send_data = read_recv_list()
-    for index, row_data in enumerate(send_data):
-        message = MIMEText(row_data[2], 'plain', 'utf-8')
-        message['Subject'] = row_data[1]
-        message['From'] = send_email
-        message['To'] = row_data[0]
+    if sys.argv[1] == 'send':
         try:
-            smtp_obj.sendmail(send_email, row_data[0], message.as_string())
-        except Exception as e:
-            print('ERROR:')
-            print(e)
-            print(f'now_index = {index}')
-            print(f'recv = {message["To"]}, title = {message["Subject"]}, content = {row_data[2]}')
+            smtp_obj, send_email = login_my_email()
+        except:
+            print('ERROR:Login failed')
             sys.exit()
-        print(f'recv = {message["To"]}, title = {message["Subject"]}, content = {row_data[2]}\n')
-        time.sleep(30)
-    smtp_obj.quit()
+        send_data = read_recv_list()
+        for index, row_data in enumerate(send_data):
+            try:
+                message = MIMEText(row_data[2], 'plain', 'utf-8')
+                message['Subject'] = row_data[1]
+                message['From'] = send_email
+                message['To'] = row_data[0]
+                smtp_obj.sendmail(send_email, row_data[0], message.as_string())
+            except Exception as e:
+                print('ERROR:')
+                print(e)
+                print(f'now_index = {index}')
+                print(f'recv = {message["To"]}, title = {message["Subject"]}, content = {row_data[2]}')
+                sys.exit()
+            print(f'recv = {message["To"]}, title = {message["Subject"]}, content = \n{row_data[2]}\n')
+            time.sleep(30)
+        smtp_obj.quit()
 
 
